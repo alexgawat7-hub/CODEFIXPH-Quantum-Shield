@@ -3,7 +3,7 @@ import streamlit as st
 st.set_page_config(page_title="CODEFIXPH Quantum Shield", page_icon="🛡️")
 
 st.title("🛡️ CODEFIXPH Quantum Shield")
-st.subheader("Quantum-Safe Security by Alex Gaw")
+st.subheader("Quantum-Safe Security by Alex Gawat jr.")
 st.success("DNA VERIFIED - e559d184be3c - Alex Gawat")
 st.divider()
 message = st.text_area("Enter message to encrypt:")
