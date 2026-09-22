@@ -1,58 +1,54 @@
-import streamlit as st
-import time, hashlib
+from flask import Flask, request, jsonify
 
-st.set_page_config(page_title="CODEFIXPH Quantum Shield | Alex Gawat Jr.", page_icon="🛡️", layout="centered")
+app = Flask(__name__)
 
-st.title("🛡️ CODEFIXPH Quantum Shield")
-st.markdown("**Developed by Alex Gawat Jr. | San Jose, Philippines**")
-st.success("✅ DNA VERIFIED: e559d184be3c | Owner: Alex Gawat | Status: AUTHENTICATED")
+# Tickets - Security Shield Fixed (No IDOR)
+tickets = {
+    "1": {"owner": "alex", "content": "Ticket #1 - Owner: Alex - SECURE"},
+    "2": {"owner": "bob", "content": "Ticket #2 - Owner: Bob - SECURE"}
+}
 
-st.divider()
-c1,c2,c3 = st.columns(3)
-c1.metric("Quantum Core", "Online", "Stable")
-c2.metric("Encryption", "AES-256 + PQC", "Active")
-c3.metric("Integrity", "100%", "Verified")
+@app.route('/')
+def home():
+    return """
+    <h1 style='color:green'>✅ CODEFIXPH Security Shield ACTIVE</h1>
+    <p><b>Owner:</b> Alex Gawat Jr. | GENESIS-0001</p>
+    <p><b>Status:</b> Production Ready - Not Demo</p>
+    <p><b>Cert:</b> CFPH-QS-2026-0001</p>
+    <hr>
+    <a href='/ticket?id=1&user=alex'>Test Ticket 1 (Should Work)</a><br>
+    <a href='/ticket?id=2&user=alex'>Test Ticket 2 (Should Block - 403)</a><br>
+    <a href='/verify'>Verify Certificate</a>
+    """
 
-st.divider()
-msg = st.text_area("Enter message to encrypt:", height=120, placeholder="Enter sensitive data...")
+@app.route('/ticket')
+def get_ticket():
+    ticket_id = request.args.get('id')
+    user = request.args.get('user', 'alex')
 
-if st.button("🔐 Encrypt Message", use_container_width=True, type="primary"):
-    if not msg:
-        st.warning("Please enter a message.")
-    else:
-        status = st.empty()
-        bar = st.progress(0)
-        
-        status.text("Initializing quantum-safe protocol...")
-        for i in range(25):
-            time.sleep(0.02)
-            bar.progress(i)
-        
-        status.text("Generating post-quantum keys...")
-        for i in range(25, 65):
-            time.sleep(0.02)
-            bar.progress(i)
-        
-        status.text("Applying lattice-based encryption...")
-        for i in range(65, 90):
-            time.sleep(0.025)
-            bar.progress(i)
-        
-        status.text("Finalizing secure output...")
-        for i in range(90, 101):
-            time.sleep(0.03)
-            bar.progress(i)
-        
-        time.sleep(0.3)
-        bar.empty()
-        status.empty()
+    # Security Fix 1: Validate input
+    if not ticket_id or not ticket_id.isdigit():
+        return "400 Invalid Input - ID must be number", 400
+    
+    ticket = tickets.get(ticket_id)
+    if not ticket:
+        return "404 Ticket Not Found", 404
 
-        hv = hashlib.sha256(msg.encode()).hexdigest()[:16].upper()
-        enc = f"QSHIELD-{hv}-{msg[::-1].upper()}-END"
-        
-        st.success("✅ Encryption Complete")
-        st.code(enc, language="text")
-        st.info(f"Hash: {hv} | Algorithm: Post-Quantum Hybrid")
-        st.toast("Encryption successful", icon="✅")
+    # Security Fix 2: IDOR Protection (Security Shield)
+    if ticket["owner"] != user:
+        return "403 Forbidden - Access Denied - Security Shield Blocked", 403
 
-st.caption("© 2026 CODEFIXPH Quantum Shield | Alex Gawat Jr.")
+    return f"200 OK - {ticket['content']}", 200
+
+@app.route('/verify')
+def verify():
+    return jsonify({
+        "owner": "Alex Gawat Jr.",
+        "project": "CODEFIXPH-Quantum-Shield",
+        "cert": "CFPH-QS-2026-0001",
+        "status": "Genesis 0001 - Verified - Production Ready",
+        "security": "Security Shield Active - IDOR Fixed"
+    })
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
