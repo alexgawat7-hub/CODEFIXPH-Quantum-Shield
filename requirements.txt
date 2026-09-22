@@ -1,6 +1,6 @@
-Flask==3.0.0
-Flask-Limiter==3.5.0
-gunicorn==21.2.0
-streamlit==1.35.0
+Flask
+Flask-Limiter
+gunicorn
+streamlit
 cryptography
 pycryptodome
