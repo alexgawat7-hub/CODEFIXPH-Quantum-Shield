@@ -1,0 +1,17 @@
+
+CODEFIXPH FLASK QUANTUM SHIELD
+EXCLUSIVE GENESIS 0001 - NOT FOR WHITE LABEL
+
+Owner: Alex Gawat ONLY
+GCash: 09517080795
+Certificate: CFPH-QS-2026-0001
+Blockchain Hash: e559d184be3cbe3c...
+Status: EXCLUSIVE - ONLY ALEX GAWAT
+White Label: NOT ALLOWED
+Verification: /verify route
+Price: $99 / P7,500 Pro License (User only, Owner remains Alex Gawat)
+Created: Sept 22, 2026 - San Jose, PH
+Proof: Termux + GitHub Commit 0001
+
+This license is EXCLUSIVE. Buyer is USER only, not OWNER.
+Genesis Owner will forever be Alex Gawat in blockchain.
