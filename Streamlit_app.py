@@ -1,4 +1,5 @@
 import streamlit as st
+from quantum_scanner import scan_website, ScanError
 from datetime import datetime, timezone
 
 st.set_page_config(
@@ -95,7 +96,7 @@ for col, (label, value, note) in zip(cols, metrics):
         st.markdown(f'<div class="metric"><div class="metric-label">{label}</div><div class="metric-value">{value}</div><div class="metric-note">{note}</div></div>', unsafe_allow_html=True)
 
 st.write("")
-tab_test, tab_records, tab_audit, tab_about = st.tabs(["⚡ Access Lab", "▦ Sample Records", "◷ Test History", "ⓘ About"])
+tab_test, tab_records, tab_audit, tab_scan, tab_about = st.tabs(["⚡ Access Lab", "▦ Sample Records", "◷ Test History", "⌕ Website Scan", "ⓘ About"])
 
 with tab_test:
     st.markdown('<div class="smallcaps">01 / CONTROLLED IDOR TEST</div>', unsafe_allow_html=True)
@@ -152,6 +153,37 @@ with tab_audit:
         st.session_state.events = []
         st.session_state.pop("last_result", None)
         st.rerun()
+
+
+with tab_scan:
+    st.markdown('<div class="smallcaps">04 / PASSIVE WEBSITE SECURITY CHECK</div>', unsafe_allow_html=True)
+    st.subheader("Check a website's basic security posture")
+    st.caption("Only scan websites you own or have explicit permission to assess. This makes one bounded GET request and does not exploit or submit forms.")
+    with st.form("quantum_website_scan"):
+        target_url = st.text_input("Website URL", placeholder="https://example.com", max_chars=2048)
+        submitted = st.form_submit_button("Run safe website check", type="primary")
+    if submitted:
+        try:
+            st.session_state.website_report = scan_website(target_url)
+        except ScanError as exc:
+            st.error(str(exc))
+    if "website_report" in st.session_state:
+        report = st.session_state.website_report
+        a, b, c = st.columns(3)
+        a.metric("Posture score", f"{report['score']}/100")
+        b.metric("Assessment", report["rating"])
+        c.metric("HTTP status", report["http_status"])
+        st.caption(f"Target: {report['target']}")
+        st.download_button("Download JSON report", data=__import__("json").dumps(report, indent=2), file_name="quantum-shield-report.json", mime="application/json")
+        for finding in report["findings"]:
+            with st.container(border=True):
+                st.markdown(f"**{finding['severity'].upper()} · {finding['title']}**")
+                st.write(finding["detail"])
+                st.info(f"Recommendation: {finding['recommendation']}")
+        with st.expander("Scope and limitations"):
+            for limitation in report["limitations"]:
+                st.write(f"• {limitation}")
+        st.warning("This is a limited HTTP header check, not a penetration test or security certification. A high score does not prove that a website is secure.")
 
 with tab_about:
     st.markdown('<div class="smallcaps">04 / PROJECT INFORMATION</div>', unsafe_allow_html=True)
