@@ -119,5 +119,82 @@ def verify():
         "production_certification": False,
     })
 
+
+# Quantum Shield passive website scanner
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from quantum_scanner import scan_website, ScanError
+import json
+from functools import wraps
+
+limiter = Limiter(get_remote_address, app=app, default_limits=["120 per hour"], storage_uri=os.environ.get("RATELIMIT_STORAGE_URI", "memory://"))
+
+SCAN_PAGE = """
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quantum Shield · Website Check</title><style>
+:root{color-scheme:dark;--bg:#080d19;--panel:#111a2b;--line:#26354d;--muted:#91a3bb;--text:#eef5ff;--cyan:#56e0d0;--red:#ff7385}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 12% 0%,#15304a 0,transparent 38%),var(--bg);color:var(--text);font:15px/1.6 system-ui,sans-serif}
+main{max-width:980px;margin:auto;padding:28px 18px 60px}.top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.brand{font-weight:900;letter-spacing:.08em}.brand span{color:var(--cyan)}a{color:var(--cyan)}
+.hero,.card{border:1px solid var(--line);background:linear-gradient(140deg,#14243a,#101827);border-radius:20px;padding:22px;margin-top:18px}.eyebrow{color:var(--cyan);font-size:11px;letter-spacing:.16em;font-weight:800}.hero h1{font-size:clamp(28px,5vw,42px);line-height:1.1;margin:8px 0}.muted{color:var(--muted);font-size:13px}
+form{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}input{flex:1;min-width:220px;background:#081321;border:1px solid #344966;border-radius:10px;padding:13px;color:var(--text);font:inherit}button,.download{border:0;border-radius:10px;background:linear-gradient(135deg,#56e0d0,#70a7ff);padding:12px 18px;color:#071421;font-weight:900;font:inherit;text-decoration:none;cursor:pointer}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}.stat{background:#0c1728;border:1px solid var(--line);border-radius:14px;padding:15px}.num{font-size:28px;font-weight:900}.finding{border:1px solid var(--line);border-radius:14px;padding:15px;margin:10px 0;background:#0d1727}.sev{font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}.high,.critical{color:#ff8291}.medium{color:#ffc66e}.low{color:#8cb8ff}.info{color:var(--cyan)}.error{background:#301a24;border:1px solid #7a3349;padding:12px;border-radius:12px;margin-top:15px}
+@media(max-width:600px){main{padding:18px 13px}.hero,.card{padding:18px}form button{width:100%}}
+</style></head><body><main>
+<div class="top"><div class="brand">CODEFIXPH <span> / QUANTUM SHIELD</span></div><a href="/">Access-control demo</a></div>
+<div class="hero"><div class="eyebrow">PASSIVE WEBSITE SECURITY CHECK</div><h1>See your website's security posture.</h1><p class="muted">Checks basic HTTPS and response security headers. One bounded request, no exploit attempts, no form submissions, and redirects are not followed.</p>
+<form method="post" action="/scan"><input name="url" type="url" placeholder="https://example.com" value="{{ target }}" required maxlength="2048"><button type="submit">Run safe check</button></form>
+<p class="muted">Only scan websites you own or have explicit permission to assess. Public website checks are limited to 5 per hour per IP.</p></div>
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+{% if report %}<section class="card"><div class="eyebrow">SCAN SUMMARY</div><div class="stats">
+<div class="stat"><div class="muted">POSTURE SCORE</div><div class="num">{{ report.score }}/100</div></div>
+<div class="stat"><div class="muted">ASSESSMENT</div><div class="num" style="font-size:20px">{{ report.rating }}</div></div>
+<div class="stat"><div class="muted">HTTP STATUS</div><div class="num">{{ report.http_status }}</div></div>
+<div class="stat"><div class="muted">FINDINGS</div><div class="num">{{ report.findings|length }}</div></div></div>
+<p class="muted">Target: {{ report.target }}</p><a class="download" href="/scan/report.json">Download JSON report</a></section>
+<section class="card"><div class="eyebrow">DETAILED FINDINGS</div><h2>What Quantum Shield observed</h2>
+{% for item in report.findings %}<div class="finding"><div class="sev {{ item.severity }}">{{ item.severity }}</div><strong>{{ item.title }}</strong><p class="muted">{{ item.detail }}</p><p><strong>Recommendation:</strong> {{ item.recommendation }}</p></div>{% endfor %}</section>
+<section class="card"><div class="eyebrow">SCOPE & LIMITATIONS</div><ul>{% for item in report.limitations %}<li class="muted">{{ item }}</li>{% endfor %}</ul></section>{% endif %}
+<section class="card"><div class="eyebrow">PRODUCT SCOPE</div><p class="muted">Quantum Shield is a lightweight first-pass HTTP configuration checker and an educational access-control lab. It is not a vulnerability scanner, penetration test, compliance audit, or security certification.</p></section>
+</main></body></html>
+"""
+
+@app.get("/scan")
+def scan_home():
+    return render_template_string(SCAN_PAGE, report=session.get("last_scan"), target="", error=None)
+
+@app.post("/scan")
+@limiter.limit("5 per hour")
+def scan_submit():
+    target = request.form.get("url", "")
+    try:
+        report = scan_website(target)
+        session["last_scan"] = report
+        return render_template_string(SCAN_PAGE, report=report, target=target, error=None)
+    except ScanError as exc:
+        return render_template_string(SCAN_PAGE, report=None, target=target, error=str(exc)), 400
+
+@app.get("/scan/report.json")
+def scan_report_download():
+    report = session.get("last_scan")
+    if not report:
+        return jsonify({"error": "Run a website check before downloading a report."}), 404
+    response = app.response_class(json.dumps(report, indent=2), mimetype="application/json")
+    response.headers["Content-Disposition"] = "attachment; filename=quantum-shield-report.json"
+    return response
+
+@app.post("/api/v1/scan")
+@limiter.limit("5 per hour")
+def scan_api():
+    expected_key = os.environ.get("QUANTUM_API_KEY")
+    supplied = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+    if not expected_key or not secrets.compare_digest(supplied, expected_key):
+        return jsonify({"error": "API access is disabled or the bearer token is invalid. Configure QUANTUM_API_KEY on the server."}), 401
+    payload = request.get_json(silent=True) or {}
+    try:
+        report = scan_website(payload.get("url", ""))
+        return jsonify(report)
+    except ScanError as exc:
+        return jsonify({"error": str(exc)}), 400
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "5000")))
